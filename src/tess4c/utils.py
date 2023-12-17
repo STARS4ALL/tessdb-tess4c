@@ -63,9 +63,8 @@ def _scan_file(path, reg_expression):
     log.info("Scanning %s", path)
     item_info = list()
     with open(path) as fd:
-        for line in fd:
-            text = fd.readline()
-            matchobj = regexp.search(line)
+        for i, line in enumerate(fd):
+            matchobj = regexp.search(line.strip())
             if matchobj:
                 # Logfile oputpus in local time
                 tstamp = datetime.datetime.strptime(matchobj.group(1), TSTAMP_FORMAT)
@@ -75,6 +74,8 @@ def _scan_file(path, reg_expression):
                 metadata = eval(text)
                 metadata['text'] = text
                 metadata['tstamp'] = tstamp
+                metadata['line'] = i
+                metadata['file'] = os.path.basename(path)
                 item_info.append(metadata)
     return item_info
 
