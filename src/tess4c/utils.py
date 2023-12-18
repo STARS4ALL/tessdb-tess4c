@@ -63,8 +63,9 @@ def _scan_file(path, reg_expression):
     log.info("Scanning %s", path)
     item_info = list()
     with open(path) as fd:
-        for i, line in enumerate(fd):
-            matchobj = regexp.search(line.strip())
+        for i, line in enumerate(fd, 1):
+            line = line.strip()
+            matchobj = regexp.search(line)
             if matchobj:
                 # Logfile oputpus in local time
                 tstamp = datetime.datetime.strptime(matchobj.group(1), TSTAMP_FORMAT)
@@ -73,6 +74,7 @@ def _scan_file(path, reg_expression):
                 text = matchobj.group(2)
                 metadata = eval(text)
                 metadata['text'] = text
+                metadata['source'] = line
                 metadata['tstamp'] = tstamp
                 metadata['line'] = i
                 metadata['file'] = os.path.basename(path)
@@ -101,6 +103,22 @@ def assert_timestamps(a_dict):
             if values[i-1]['tstamp'] == values[i]['tstamp']:
                 log.warn("%s: Duplicate timestamp %s for positions %d and %d", key, item['tstamp'], i-1, i)
                 log.debug("%s <=> %s", values[i-1], values[i])
+
+def remove_duplicates(a_dict):
+    for key, values in a_dict.items():
+        log.info("CHECKING %s:timestamps in %d values", key, len(values))
+        indexes_to_delete = list()
+        for i, item in enumerate(values):
+            if i == 0:
+                continue
+            assert values[i-1]['tstamp'] <= values[i]['tstamp']
+            if values[i-1]['tstamp'] == values[i]['tstamp']:
+                log.warn("%s: Duplicate timestamp %s for positions %d and %d", key, item['tstamp'], i-1, i)
+                log.debug("%s <=> %s", values[i-1], values[i])
+                indexes_to_delete.append(i)
+        for i in sorted(indexes_to_delete, reverse=True):
+            log.warn("%s: Deleting position %d", key, i)
+            del values[i]
 
 # ================    
 # JINJA2 Rendering

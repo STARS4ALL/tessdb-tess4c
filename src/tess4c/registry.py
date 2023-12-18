@@ -27,7 +27,7 @@ import datetime
 # local imports
 # -------------
 
-from .utils import group_by_name, assert_timestamps, get_tessdb_connection_string, get_tessdb_logfiles_dir, open_database, render_from
+from .utils import remove_duplicates, group_by_name, assert_timestamps, get_tessdb_connection_string, get_tessdb_logfiles_dir, open_database, render_from
 
 # ----------------
 # Module constants
@@ -56,7 +56,23 @@ RE_READ = r'(\d{4}-\d{2}-\d{2}T\d{2}\:\d{2}\:\d{2}\+\d{4}) \[mqttS#error\] Valid
 
 EXCLUDED_NAMES = ('stars4C1','Prub4c2','Pru24c','Prueba')
 
+def filter_unwanted_names(a_dict, excluded_names):
+	for key in excluded_names:
+		del a_dict[key]
 
+def remove_duplicated_registry(a_dict):
+    for key, values in a_dict.items():
+        indexes_to_delete = list()
+        for i, item in enumerate(values):
+            if i == 0:
+                continue
+            if values[i-1]['text'] == values[i]['text']:
+                log.warn("%s: Duplicate registry messages for positions %d and %d", key, i-1, i)
+                log.debug("%s <=> %s", values[i-1], values[i])
+                indexes_to_delete.append(i)
+        for i in sorted(indexes_to_delete, reverse=True):
+            log.warn("%s: Deleting position %d", key, i)
+            del values[i]
 
 # ===================
 # Module entry points
@@ -70,5 +86,7 @@ def scan(options):
     top_file = os.path.join(base_dir, TOP_LOGFILE)
     total_files = (path for path in sorted(glob.iglob(wildcard)) if path <= top_file)
     register_messages = group_by_name(total_files, RE_REG)
-    assert_timestamps(register_messages)
-    
+    filter_unwanted_names(register_messages, EXCLUDED_NAMES)
+    remove_duplicates(register_messages)
+    log.info("====================== REGISTRY SCAN 2 ======================")
+    remove_duplicated_registry(register_messages)
